@@ -42,7 +42,7 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
 
         translateText = new TranslateText(request.getTranslateFromLanguageCode(), request.getTranslateToLanguageCode());
         synthesizer = new PollySpeechSynthesizer(request.getPollyLanguageCode(), request.getPollyVoiceId());
-        streamer = new WebSocketStreamer("https://qv1241nc27.execute-api.us-east-1.amazonaws.com/dev/", "WebSocketConnections");
+        streamer = new WebSocketStreamer("https://encgiyvrte.execute-api.us-east-1.amazonaws.com/dev/", "ICS_Showcase_Call_Handler");
     }
 
     @Override
@@ -54,7 +54,7 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
     public void onStream(TranscriptResultStream e) {
         // EventResultStream has other fields related to the timestamp of the transcripts in it.
         // Please refer to the javadoc of TranscriptResultStream for more details
-        System.out.println("Transcript result stream: " + e.toString());
+//        System.out.println("Transcript result stream: " + e.toString());
         TranscriptEvent event = (TranscriptEvent) e;
 
         String transcript = getTranscript(event);
@@ -79,7 +79,7 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
         if (results.size() > 0) {
 
             Result result = results.get(0);
-            System.out.println("At least got some result: " + result.toString());
+//            System.out.println("At least got some result: " + result.toString());
 
             if (!result.isPartial()) {
                 try {
@@ -89,7 +89,6 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
                         }
                     }
 
-                    System.out.println("Transcript: " + result.alternatives().get(0).transcript());
                     System.out.println("Processed transcript at: " + Instant.now().getEpochSecond());
 
                 } catch (Exception e) {

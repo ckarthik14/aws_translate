@@ -98,17 +98,16 @@ public class KDSByteToAudioEventSubscription implements Subscription {
                     GetRecordsResponse recordsResponse = kinesisClient.getRecords(recordsRequest);
 
                     List<Record> records = recordsResponse.records();
-                    System.out.println("Number of records received: " + records.size());
+//                    System.out.println("Number of records received: " + records.size());
 
                     for (Record record : records) {
                         ByteBuffer encodedBytes = record.data().asByteBuffer();
                         ByteBuffer decodedBytes = Base64.getDecoder().decode(record.data().asByteBuffer());
 
                         CharBuffer b64Buf = StandardCharsets.UTF_8.decode(encodedBytes);
-                        System.out.println("Base64 audio: " + b64Buf);
+//                        System.out.println("Base64 audio: " + b64Buf);
 
                         // Process the byte buffer as needed
-                        System.out.println("Received record with data of size: " + b64Buf.length());
 
                         AudioEvent audioEvent = audioEventFromBuffer(decodedBytes);
                         subscriber.onNext(audioEvent);
