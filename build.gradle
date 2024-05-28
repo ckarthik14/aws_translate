@@ -46,6 +46,8 @@ dependencies {
 
     // Reactive Streams
     implementation 'org.reactivestreams:reactive-streams:1.0.3'
+
+    implementation 'software.amazon.awssdk:kinesis:2.25.43'
 }
 
 test {

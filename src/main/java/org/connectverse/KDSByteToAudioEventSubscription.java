@@ -1,16 +1,21 @@
 package org.connectverse;
 
-import com.amazonaws.kinesisvideo.parser.mkv.StreamingMkvReader;
-import com.amazonaws.kinesisvideo.parser.utilities.FragmentMetadataVisitor;
 import org.apache.commons.lang3.Validate;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.kinesis.model.*;
+import software.amazon.awssdk.services.kinesis.model.Record;
 import software.amazon.awssdk.services.transcribestreaming.model.AudioEvent;
 import software.amazon.awssdk.services.transcribestreaming.model.AudioStream;
 
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,15 +42,38 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class KDSByteToAudioEventSubscription implements Subscription {
 
-    private static final int CHUNK_SIZE_IN_KB = 4;
+    private static final int CHUNK_SIZE_IN_BYTES = 1024;
     private final String streamName;
-    private ExecutorService executor = Executors.newFixedThreadPool(1); // Change nThreads here!! used in SubmissionPublisher not subscription
-    private AtomicLong demand = new AtomicLong(0); // state container
+    private final ExecutorService executor = Executors.newFixedThreadPool(1); // Change nThreads here!! used in SubmissionPublisher not subscription
+    private final AtomicLong demand = new AtomicLong(0); // state container
     private final Subscriber<? super AudioStream> subscriber;
+
+    private final KinesisClient kinesisClient;
+    private final GetShardIteratorRequest shardIteratorRequest;
+    private final GetShardIteratorResponse shardIteratorResponse;
+    private String shardIterator;
 
     public KDSByteToAudioEventSubscription(Subscriber<? super AudioStream> s, String streamName) {
         this.subscriber = Validate.notNull(s);
         this.streamName = streamName;
+
+        System.out.println("Stream Name: " + streamName);
+
+        String shardId = "shardId-000000000000"; // Replace with your shard ID
+        Region region = Region.US_EAST_1; // Replace with your region
+
+        // Create a Kinesis client
+        kinesisClient = KinesisClient.builder().region(region).build();
+
+        // Get an initial shard iterator
+        shardIteratorRequest = GetShardIteratorRequest.builder()
+                .streamName(streamName)
+                .shardId(shardId)
+                .shardIteratorType(ShardIteratorType.LATEST)
+                .build();
+
+        shardIteratorResponse = kinesisClient.getShardIterator(shardIteratorRequest);
+        shardIterator = shardIteratorResponse.shardIterator();
     }
 
     @Override
@@ -55,29 +83,47 @@ public class KDSByteToAudioEventSubscription implements Subscription {
         }
 
         demand.getAndAdd(n);
+
+//        System.out.println("Number of records demanded: " + n);
+
         //We need to invoke this in a separate thread because the call to subscriber.onNext(...) is recursive
         executor.submit(() -> {
             try {
                 while (demand.get() > 0) {
-                    // return byteBufferDetails and consume this with an input stream then feed to output stream
-                    ByteBuffer audioBuffer = ByteBuffer.allocate(10);
+                    GetRecordsRequest recordsRequest = GetRecordsRequest.builder()
+                            .shardIterator(shardIterator)
+                            .limit((int) n)
+                            .build();
 
-                    if (audioBuffer.remaining() > 0) {
+                    GetRecordsResponse recordsResponse = kinesisClient.getRecords(recordsRequest);
 
-                        AudioEvent audioEvent = audioEventFromBuffer(audioBuffer);
+                    List<Record> records = recordsResponse.records();
+                    System.out.println("Number of records received: " + records.size());
+
+                    for (Record record : records) {
+                        ByteBuffer encodedBytes = record.data().asByteBuffer();
+                        ByteBuffer decodedBytes = Base64.getDecoder().decode(record.data().asByteBuffer());
+
+                        CharBuffer b64Buf = StandardCharsets.UTF_8.decode(encodedBytes);
+                        System.out.println("Base64 audio: " + b64Buf);
+
+                        // Process the byte buffer as needed
+                        System.out.println("Received record with data of size: " + b64Buf.length());
+
+                        AudioEvent audioEvent = audioEventFromBuffer(decodedBytes);
                         subscriber.onNext(audioEvent);
-
-                        //Write audioBytes to a temporary file as they are received from the stream
-                        byte[] audioBytes = new byte[audioBuffer.remaining()];
-                        audioBuffer.get(audioBytes);
-
-                    } else {
-                        subscriber.onComplete();
-                        break;
+                        demand.decrementAndGet();
                     }
-                    demand.getAndDecrement();
+
+                    shardIterator = recordsResponse.nextShardIterator();
+
+//                if (records.size() < n) {
+//                    subscriber.onComplete();
+//                }
                 }
             } catch (Exception e) {
+                System.out.println("Got an exception while sending for transcription: ");
+                e.printStackTrace();
                 subscriber.onError(e);
             }
         });
@@ -88,9 +134,9 @@ public class KDSByteToAudioEventSubscription implements Subscription {
         executor.shutdown();
     }
 
-    private AudioEvent audioEventFromBuffer(ByteBuffer bb) {
+    private AudioEvent audioEventFromBuffer(ByteBuffer sdkBytes) {
         return AudioEvent.builder()
-                .audioChunk(SdkBytes.fromByteBuffer(bb))
+                .audioChunk(SdkBytes.fromByteBuffer(sdkBytes))
                 .build();
     }
 }

@@ -54,19 +54,21 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
     public void onStream(TranscriptResultStream e) {
         // EventResultStream has other fields related to the timestamp of the transcripts in it.
         // Please refer to the javadoc of TranscriptResultStream for more details
+        System.out.println("Transcript result stream: " + e.toString());
         TranscriptEvent event = (TranscriptEvent) e;
 
         String transcript = getTranscript(event);
 
         if (!transcript.isEmpty()) {
+            System.out.println("Transcribed text: '" + transcript + "'");
             String translatedText = translateText.translate(transcript);
-            logger.info("Translated text: '" + translatedText + "'");
+            System.out.println("Translated text: '" + translatedText + "'");
 
-            logger.info("Finished synthesizing speech for: " + translatedText);
+            System.out.println("Finished synthesizing speech for: " + translatedText);
             SynthesizeSpeechResult speechResult = synthesizer.synthesizeSpeech(translatedText);
 
             streamer.streamAudioToConnections(speechResult);
-            logger.info("Finished streaming to socket for: " + translatedText);
+            System.out.println("Finished streaming to socket for: " + translatedText);
         }
     }
 
@@ -77,6 +79,7 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
         if (results.size() > 0) {
 
             Result result = results.get(0);
+            System.out.println("At least got some result: " + result.toString());
 
             if (!result.isPartial()) {
                 try {
@@ -86,8 +89,8 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
                         }
                     }
 
-                    logger.info("Transcript: " + result.alternatives().get(0).transcript());
-                    logger.info("Processed transcript at: " + Instant.now().getEpochSecond());
+                    System.out.println("Transcript: " + result.alternatives().get(0).transcript());
+                    System.out.println("Processed transcript at: " + Instant.now().getEpochSecond());
 
                 } catch (Exception e) {
                     logger.error("Could not process transcript: ", e);
@@ -100,13 +103,13 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
 
     @Override
     public void onResponse(StartStreamTranscriptionResponse r) {
-        logger.info(String.format("%d Received Initial response from Transcribe. Request Id: %s",
+        System.out.println(String.format("%d Received Initial response from Transcribe. Request Id: %s",
                 System.currentTimeMillis(), r.requestId()));
     }
 
     @Override
     public void onComplete() {
-        logger.info("Transcribe stream completed");
+        System.out.println("Transcribe stream completed");
     }
 }
 

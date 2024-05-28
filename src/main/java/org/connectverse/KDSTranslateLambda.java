@@ -44,14 +44,10 @@ import java.util.concurrent.TimeoutException;
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, String> {
-    private static final Regions TRANSCRIBE_REGION = Regions.fromName(System.getenv("TRANSCRIBE_REGION"));
+    private static final Regions TRANSCRIBE_REGION = Regions.fromName("us-east-1");
     private static final String TRANSCRIBE_ENDPOINT = "https://transcribestreaming." + TRANSCRIBE_REGION.getName() + ".amazonaws.com";
-    private static final String START_SELECTOR_TYPE = System.getenv("START_SELECTOR_TYPE");
-    private static final String TABLE_CALLER_TRANSCRIPT = System.getenv("TABLE_CALLER_TRANSCRIPT");
-    private static final String TABLE_CALLER_TRANSCRIPT_TO_CUSTOMER = System.getenv("TABLE_CALLER_TRANSCRIPT_TO_CUSTOMER");
 
     private static final Logger logger = LoggerFactory.getLogger(KDSTranslateLambda.class);
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
     /**
      * Handler function for the Lambda
@@ -64,7 +60,6 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
     public String handleRequest(TranscriptionRequest request, Context context) {
 
         logger.info("received request : " + request.toString());
-        logger.info("received context: " + context.toString());
 
         String streamARN = request.getStreamARN();
         String streamName = streamARN.substring(streamARN.indexOf("/") + 1, streamARN.lastIndexOf("/"));
@@ -107,7 +102,7 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
     private CompletableFuture<Void> getStartStreamingTranscriptionFuture(TranscribeStreamingRetryClient client, String streamName, TranscriptionRequest request) {
         return client.startStreamTranscription(
                 // since we're definitely working with telephony audio, we know that's 8 kHz
-                getRequest(8000, request.transcribeLanguageCode),
+                getRequest(16000, request.transcribeLanguageCode),
                 new KDSAudioStreamPublisher(streamName),
                 new StreamTranscriptionBehaviorImpl(request)
         );
@@ -134,6 +129,7 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
 
         return StartStreamTranscriptionRequest.builder()
                 .languageCode(languageCode.isPresent() ? languageCode.get() : LanguageCode.EN_US.toString())
+                .numberOfChannels(1)
                 .mediaEncoding(MediaEncoding.PCM)
                 .mediaSampleRateHertz(mediaSampleRateHertz)
                 .build();
