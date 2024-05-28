@@ -24,6 +24,8 @@ import java.util.Optional;
 public class TranscriptionRequest {
 
     String streamARN = null;
+    String receiver = null;
+    Communicator communicator = null;
     String inputFileName = null;
     String connectContactId = null;
     Optional<String> transcribeLanguageCode = Optional.empty();
@@ -46,6 +48,22 @@ public class TranscriptionRequest {
     public void setStreamARN(String streamARN) {
 
         this.streamARN = streamARN;
+    }
+
+    public String getReceiver() {
+        return receiver;
+    }
+
+    public void setReceiver(String receiver) {
+        this.receiver = receiver;
+    }
+
+    public Communicator getCommunicator() {
+        return communicator;
+    }
+
+    public void setCommunicator(Communicator communicator) {
+        this.communicator = communicator;
     }
 
     public String getInputFileName() {

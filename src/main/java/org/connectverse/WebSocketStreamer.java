@@ -26,13 +26,15 @@ public class WebSocketStreamer {
     private final ApiGatewayManagementApiClient apiClient;
     private final DynamoDbClient dynamoDbClient;
     private final String tableName;
+    private final String receiver;
 
-    public WebSocketStreamer(String apiGatewayEndpointUrl, String tableName) {
+    public WebSocketStreamer(String apiGatewayEndpointUrl, String tableName, String receiver) {
         this.apiClient = ApiGatewayManagementApiClient.builder()
                 .endpointOverride(URI.create(apiGatewayEndpointUrl))
                 .build();
         this.dynamoDbClient = DynamoDbClient.create();
         this.tableName = tableName;
+        this.receiver = receiver;
     }
 
     public void streamAudioToConnections(SynthesizeSpeechResult speechResult) {
@@ -63,7 +65,7 @@ public class WebSocketStreamer {
         DynamoDBHelper dynamoDBHelper = new DynamoDBHelper();
 
         try {
-            String connectionId = retryQuery(dynamoDBHelper, tableName);
+            String connectionId = retryQuery(dynamoDBHelper, tableName, receiver);
             System.out.println("Got connection ID to stream translated audio to: " + connectionId);
             return connectionId;
         } catch (Exception e) {
@@ -75,11 +77,11 @@ public class WebSocketStreamer {
         throw new RuntimeException("FATAL: Could not get connection ID");
     }
 
-    private static String retryQuery(DynamoDBHelper dynamoDBHelper, String tableName) throws Exception {
+    private static String retryQuery(DynamoDBHelper dynamoDBHelper, String tableName, String receiver) throws Exception {
         int retries = 0;
         while (true) {
             try {
-                QueryResponse response = dynamoDBHelper.queryByCommunicator(tableName, "communicator-index", AGENT_RECEIVER);
+                QueryResponse response = dynamoDBHelper.queryByCommunicator(tableName, "communicator-index", receiver);
                 if (!response.items().isEmpty() && response.items().get(0).containsKey("connectionId")) {
                     return response.items().get(0).get("connectionId").s();
                 } else {

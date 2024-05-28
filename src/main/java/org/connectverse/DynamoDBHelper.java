@@ -35,9 +35,24 @@ public class DynamoDBHelper {
         }
     }
 
+    public Map<String, AttributeValue> queryByPrimaryKey(String tableName, String primaryKey, String primaryKeyValue) {
+        try {
+            QueryRequest queryRequest = QueryRequest.builder()
+                    .tableName(tableName)
+                    .keyConditionExpression("#pk = :v_pk")
+                    .expressionAttributeNames(Map.of("#pk", primaryKey))
+                    .expressionAttributeValues(Map.of(":v_pk", AttributeValue.builder().s(primaryKeyValue).build()))
+                    .build();
+
+            return dbClient.query(queryRequest).items().get(0);
+        } catch (DynamoDbException e) {
+            System.err.println("Error querying DynamoDB by primary key: " + e.getMessage());
+            throw e;
+        }
+    }
+
     public void close() {
         // Close the DynamoDB client connection
         dbClient.close();
     }
 }
-

@@ -10,13 +10,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.transcribestreaming.model.AudioStream;
 import software.amazon.awssdk.services.transcribestreaming.model.LanguageCode;
 import software.amazon.awssdk.services.transcribestreaming.model.MediaEncoding;
 import software.amazon.awssdk.services.transcribestreaming.model.StartStreamTranscriptionRequest;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +49,13 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
 
     private static final Logger logger = LoggerFactory.getLogger(KDSTranslateLambda.class);
 
+    private static final Map<String, LanguageDetails> LANGUAGES = Map.of(
+            "English", new LanguageDetails("en-US","en", "en-US","Kendra"),
+            "Hindi", new LanguageDetails("hi-IN","hi", "hi-IN","Aditi"),
+            "French", new LanguageDetails("fr-FR","fr", "","Mathieu"),
+            "Spanish", new LanguageDetails("es-ES","es", "es-ES","Lucia")
+    );
+
     /**
      * Handler function for the Lambda
      *
@@ -60,6 +67,8 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
     public String handleRequest(TranscriptionRequest request, Context context) {
 
         logger.info("received request : " + request.toString());
+
+        enrichTranscriptionRequestion(request);
 
         String streamARN = request.getStreamARN();
         String streamName = streamARN.substring(streamARN.indexOf("/") + 1, streamARN.lastIndexOf("/"));
@@ -96,6 +105,20 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
             logger.error("KVS to Transcribe Streaming failed with: ", e);
             return "{ \"result\": \"Failed\" }";
         }
+    }
+
+    private void enrichTranscriptionRequestion(TranscriptionRequest request) {
+        DynamoDBHelper helper = new DynamoDBHelper();
+
+        Map<String, AttributeValue> values = helper.queryByPrimaryKey("ICS_Showcase_language", "callId", "1");
+        LanguageDetails customerLang = LANGUAGES.get(values.get("customer_language").s());
+        LanguageDetails agentLang = LANGUAGES.get(values.get("agent_language").s());
+
+        request.setTranscribeLanguageCode(request.communicator == Communicator.CUSTOMER ? customerLang.transcribeLanguageCode : agentLang.transcribeLanguageCode);
+        request.setTranslateFromLanguageCode(request.communicator == Communicator.CUSTOMER ? customerLang.translateLanguageCode : agentLang.translateLanguageCode);
+        request.setTranslateToLanguageCode(request.communicator == Communicator.CUSTOMER ? agentLang.translateLanguageCode : customerLang.translateLanguageCode);
+        request.setPollyLanguageCode(request.communicator == Communicator.CUSTOMER ? agentLang.pollyLanguageCode : customerLang.pollyLanguageCode);
+        request.setPollyVoiceId(request.communicator == Communicator.CUSTOMER ? agentLang.pollyVoiceId : customerLang.pollyVoiceId);
     }
 
 
@@ -152,4 +175,55 @@ public class KDSTranslateLambda implements RequestHandler<TranscriptionRequest, 
         }
     }
 
+}
+
+enum Communicator {
+    CUSTOMER,
+    AGENT;
+}
+
+class LanguageDetails {
+    public String transcribeLanguageCode;
+    public String translateLanguageCode;
+    public String pollyLanguageCode;
+    public String pollyVoiceId;
+
+    public LanguageDetails(String transcribeLanguageCode, String translateLanguageCode, String pollyLanguageCode, String pollyVoiceId) {
+        this.transcribeLanguageCode = transcribeLanguageCode;
+        this.translateLanguageCode = translateLanguageCode;
+        this.pollyLanguageCode = pollyLanguageCode;
+        this.pollyVoiceId = pollyVoiceId;
+    }
+
+    public String getTranscribeLanguageCode() {
+        return transcribeLanguageCode;
+    }
+
+    public void setTranscribeLanguageCode(String transcribeLanguageCode) {
+        this.transcribeLanguageCode = transcribeLanguageCode;
+    }
+
+    public String getTranslateLanguageCode() {
+        return translateLanguageCode;
+    }
+
+    public void setTranslateLanguageCode(String translateLanguageCode) {
+        this.translateLanguageCode = translateLanguageCode;
+    }
+
+    public String getPollyLanguageCode() {
+        return pollyLanguageCode;
+    }
+
+    public void setPollyLanguageCode(String pollyLanguageCode) {
+        this.pollyLanguageCode = pollyLanguageCode;
+    }
+
+    public String getPollyVoiceId() {
+        return pollyVoiceId;
+    }
+
+    public void setPollyVoiceId(String pollyVoiceId) {
+        this.pollyVoiceId = pollyVoiceId;
+    }
 }

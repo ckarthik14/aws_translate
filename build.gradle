@@ -50,6 +50,16 @@ dependencies {
     implementation 'software.amazon.awssdk:kinesis:2.25.43'
 }
 
+task buildZip(type: Zip) {
+    // Include JAR file and dependencies into the 'lib' directory inside the zip
+    into('lib') {
+        from(jar)
+        from(configurations.runtimeClasspath)
+    }
+
+    from('src/main/resources')
+}
+
 test {
     useJUnitPlatform()
 }

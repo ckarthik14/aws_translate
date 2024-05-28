@@ -42,7 +42,7 @@ public class StreamTranscriptionBehaviorImpl implements StreamTranscriptionBehav
 
         translateText = new TranslateText(request.getTranslateFromLanguageCode(), request.getTranslateToLanguageCode());
         synthesizer = new PollySpeechSynthesizer(request.getPollyLanguageCode(), request.getPollyVoiceId());
-        streamer = new WebSocketStreamer("https://encgiyvrte.execute-api.us-east-1.amazonaws.com/dev/", "ICS_Showcase_Call_Handler");
+        streamer = new WebSocketStreamer("https://encgiyvrte.execute-api.us-east-1.amazonaws.com/dev/", "ICS_Showcase_Call_Handler", request.getReceiver());
     }
 
     @Override
